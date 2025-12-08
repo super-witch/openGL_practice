@@ -2,10 +2,18 @@
 #include"constant.h"
 #include<cmath>
 
-#define BUFFERADD 5
+//ÒõÓ°ÅÐ¶¨·¶Î§
 #define BUFFERNUMBER 4
+
+//zÖµÅÐ¶¨·¶Î§
 #define SHADOWBIAS 5.0f
 
+//ÈíÒõÓ°À©Õ¹·¶Î§
+#define SHADOWEXTEND 3
+
+
+#define SHADOWLOW 0.6f
+#define SHADOWADD 1.0f
 
 int countBlackNeighbors(const Buffer_Dictionary& buffer, int x, int y, int radius) {
 	int count = 0;
@@ -84,9 +92,7 @@ void strengthenShadow(Buffer_Dictionary& bufferData, const Buffer_Dictionary& Or
 
 
 
-
-
-void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints, bool projectedMode, Buffer_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
+void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints, bool projectedMode, const Buffer_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
 	Homo3D boxOrign = surround_box_Origin(obj);
 	Camera L_c = { L.position,(L.position - boxOrign).normalize() };
 	Index_Dictionary shadow_buffer;      //×î¿¿½ü¹âÔ´µÄ
@@ -128,6 +134,34 @@ void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints, bo
 	}
 	strengthenShadow(shadow_bufferData, bufferData);
 }
+
+
+void shadow_Mapping_MultipyLight(const vector<Face>& obj, vector<pointLight> L, Face& realPoints, bool projectedMode,const Buffer_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
+	vector<Buffer_Dictionary> MultiShadow_buffer;
+	for (int i = 0; i < L.size(); i++) {
+		Buffer_Dictionary Shadow_buffer;
+		shadow_Mapping(obj, L[i], realPoints, projectedMode, bufferData, Shadow_buffer);
+		MultiShadow_buffer.push_back(Shadow_buffer);
+	}
+	Buffer_Dictionary finalShadow_buffer= MultiShadow_buffer[0];
+	for (int i = 1; i < MultiShadow_buffer.size(); i++) {
+		for (auto& pair : MultiShadow_buffer[i]) {
+			auto it = finalShadow_buffer.find(pair.first);
+			if (it != finalShadow_buffer.end()) {
+				get<1>(it->second) *= SHADOWADD;
+			}
+			else {
+				finalShadow_buffer[pair.first] = pair.second;
+				get<1>(finalShadow_buffer[pair.first]) /= SHADOWLOW;
+			}
+		}
+	}
+	for (auto& pair : finalShadow_buffer) {
+		get<1>(pair.second) = clampColor(get<1>(pair.second));
+	}
+	shadow_bufferData = finalShadow_buffer;
+}
+
 
 int getMaxXFromData(
 	const Buffer_Dictionary& bufferData) {
@@ -203,7 +237,7 @@ int getMinYFromData(
 		const auto& coordinate = entry.first;
 		int currentY = coordinate.second;
 
-		if (currentY > minY) {
+		if (currentY < minY) {
 			minY = currentY;
 		}
 	}
@@ -211,13 +245,13 @@ int getMinYFromData(
 	return minY;
 }
 
-// èŽ·å–x,yé”®çš„é¢œè‰²ï¼Œå¦‚æžœæœªå®šä¹‰åˆ™è¿”å›žç™½è‰²
+// »ñÈ¡x,y¼üµÄÑÕÉ«£¬Èç¹ûÎ´¶¨ÒåÔò·µ»Ø°×É«
 Color getColorAt(const Buffer_Dictionary& bufferData, int x, int y) {
 	auto it = bufferData.find({ x, y });
 	if (it != bufferData.end()) {
 		return std::get<1>(it->second);
 	}
-	return WHITE;  // é»˜è®¤ç™½è‰²
+	return WHITE;  // Ä¬ÈÏ°×É«
 }
 
 
@@ -225,13 +259,13 @@ Buffer_Dictionary JuanJi_buffer(const Buffer_Dictionary& bufferData) {
 	Buffer_Dictionary newBF= bufferData;
 
 	for (int i = 0; i < SHADOWEXTEND;i++) {
-	// èŽ·å–æœ‰å®šä¹‰çš„è¾¹ç•Œ
+	// »ñÈ¡ÓÐ¶¨ÒåµÄ±ß½ç
 		int maxX = getMaxXFromData(newBF);
 		int minX = getMinXFromData(newBF);
 		int maxY = getMaxYFromData(newBF);
 		int minY = getMinYFromData(newBF);
 
-		// æ‰©å±•ï¼Œç¡®ä¿è¾¹ç•Œçš„è½¯
+		// À©Õ¹£¬È·±£±ß½çµÄÈí
 		int extendedMinX = minX - 1;
 		int extendedMaxX = maxX + 1;
 		int extendedMinY = minY - 1;
@@ -244,21 +278,15 @@ Buffer_Dictionary JuanJi_buffer(const Buffer_Dictionary& bufferData) {
 				Color color3 = getColorAt(newBF, i, j + 1);
 				Color color4 = getColorAt(newBF, i + 1, j + 1);
 
-	Color newColor;
-	for (int i = minX; i < maxX; i = i + 2) {
-		for (int j = minY; j < maxY; j = j + 2) {
-			Color color1 = std::get<1>(bufferData[{i, j}]);
-			Color color2 = std::get<1>(bufferData[{i + 1, j}]);
-			Color color3 = std::get<1>(bufferData[{i, j + 1}]);
-			Color color4 = std::get<1>(bufferData[{i + 1, j + 1}]);
-			newColor.R = (color1.R + color2.R + color3.R + color4.R) / 3;
-			newColor.G = (color1.G + color2.G + color3.G + color4.G) / 3;
-			newColor.B = (color1.B + color2.B + color3.B + color4.B) / 3;
-			std::get<1>(newBF[{i, j}]) = newColor;
+				Color newColor;
+				newColor =(color1+ color2+ color3+ color4) / 4;
+				if (newColor != WHITE) {
+				std::get<1>(newBF[{i, j}]) = newColor;
 				}
 
 			}
 		}
 	}
+
 	return newBF;
 }

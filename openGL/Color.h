@@ -55,8 +55,21 @@ struct Color {
     Color operator/(float scalar) const {
         return Color(R / scalar, G / scalar, B / scalar);
     }
+    Color& operator/=(float scalar) {
+        R /= scalar;
+        G /= scalar;
+        B /= scalar;
+        return *this;
+    }
+
     Color operator/(Color scalar) const {
         return Color(R / scalar.R, G / scalar.G, B / scalar.B);
+    }
+    Color& operator+=(const Color& other) {
+        R += other.R;
+        G += other.G;
+        B += other.B;
+        return *this;
     }
 };
 

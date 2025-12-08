@@ -1,8 +1,7 @@
 #pragma once
 #include"constant.h"
 //判断点在裁剪边里面还是外面
-typedef std::map<std::pair<int, int>, std::tuple<float, Color>> Buffer_Dictionary;
-typedef std::map<std::pair<float, float>, int> Index_Dictionary;
+
 bool inside(Homo2D poi, Line lin)
 {
 	Homo2D p1 = lin.point1, p2 = lin.point2;
@@ -59,6 +58,15 @@ void  clip(Face& obj, Line bian)
 	}
 }
 ////////////////消隐////////////////
+//dictionary tool
+bool isKeyExists(const Buffer_Dictionary& buffer, const std::pair<int, int>& key) {
+	auto it = buffer.find(key);
+	if (it != buffer.end()) {
+		return true;
+	}
+	return false;
+}
+
 float getMinZFromData(
 	const std::map<std::pair<int, int>, std::tuple<float, Color>>& bufferData) {
 

@@ -7,6 +7,7 @@
 using namespace std;
 #define infinity  10000000.0f
 
+
 // //通用枚举
 enum Axis {
 	all_axis,
@@ -36,6 +37,11 @@ enum mode {
 
 
 #include"Color.h"
+
+typedef std::map<std::pair<int, int>, std::tuple<float, Color>> Buffer_Dictionary;
+typedef std::map<std::pair<float, float>, int> Index_Dictionary;
+
+
 #include"Matrix_.h"
 #include"Point.h"
 #include"Rasterization.h"
@@ -44,6 +50,7 @@ typedef vector<Face> Gameobject;
 #include"objLoadManager.h"
 #include"clip.h"
 #include"Light.h"
+#include"Shadow.h"
 #include"Curve.h"
 
 //窗口设置

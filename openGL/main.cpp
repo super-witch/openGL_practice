@@ -18,7 +18,7 @@ Homo3D c1 = { 0,0,0 }, homoc = { 0,0,1,0};
 vector<Gameobject> AllScene;
 vector<Homo3D> world_coordinate= {worldOrigin,x_Axis,y_Axis,z_Axis};
 
-pointLight L1 = { {0,0,100},{1,1,1} };
+vector<pointLight> L1 = { { {0,0,100},{1,1,1} },{ {100,0,100},{1,1,1} } };
 
 //用户输入相关
 int CinTransformIndex = 0, CinOriginIndex=1;
@@ -462,7 +462,7 @@ void resetColorAftershading(vector<Homo2D>&pointset,Face se) {
 
 void FaceMain(vector<Face>& model) {
 	Buffer_Dictionary bufferData;
-	
+	Buffer_Dictionary Shadow_bufferData;
 	for (int i = 0; i < model.size(); i++) {
 
 		Face selected = model[i];
@@ -492,9 +492,11 @@ void FaceMain(vector<Face>& model) {
 		//消隐
 		color_buffer1(facePointset, bufferData);
 	}
+	//用字典与摄像机重构3D点
 	Face realPointSet = get_buffer(bufferData,viewCamera);
 	//更新阴影缓冲图
-	shadow_Mapping(model, L1, realPointSet, keyShift,bufferData,Shadow_bufferData);
+	shadow_Mapping_MultipyLight(model, L1, realPointSet, keyShift, bufferData, Shadow_bufferData);
+	Shadow_bufferData = JuanJi_buffer(Shadow_bufferData);
 	//光栅绘制
 	glBegin(GL_POINTS);
 	fillColor(bufferData,Shadow_bufferData);
