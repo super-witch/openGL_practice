@@ -115,7 +115,7 @@ int countBlackNeighbors(const Buffer_Dictionary& buffer, int x, int y, int radiu
 
 				bool hasLeftBlack = false, hasRightBlack = false;
 				for (int j = 1; j <= BUFFERNUMBER; j++) {
-					if (isKeyExistsAndColorBlack(bufferData, { x - j, y })) {
+					if (isKeyExists(bufferData, { x - j, y })) {
 						hasLeftBlack = true;
 						break;
 					}
@@ -202,22 +202,21 @@ void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints,boo
 }
 
 
-void sh_Mapping(Buffer_Dictionary& bufferData, Index_Dictionary& L_Data,Face PointSet)
+
+void fillColor(Buffer_Dictionary& bufferData,Buffer_Dictionary& Shadow_bufferData)
 {
-	for (int i = 0; i < PointSet.pointsetModel.size();i++) {
-
-		int x2= static_cast<int>(PointSet.projectedPointset[i].x) ;
-		int y2 = static_cast<int>(PointSet.projectedPointset[i].y );
-
-
-		auto key2 = std::make_pair(x2, y2); 
-
-		auto bufferIt = bufferData.begin(); advance(bufferIt, i);
-		float currentDepth = PointSet.projectedPointset[i].depth;
-		auto shadowIt = L_Data.find(key2);
-
+	for (const auto& pair : bufferData) {
+		const auto& key = pair.first;
+		const auto& value = pair.second;
+		Color realColor=std::get<1>(value);
+		auto it = Shadow_bufferData.find(key);
+		if (it!= Shadow_bufferData.end()) {
+			realColor *= get<1>(it->second);
+		}
+		glColor3f(realColor.R, realColor.G, realColor.B);
+		glVertex2f(key.first, key.second);
+	}
 }
-
 
 void fillColor(Buffer_Dictionary& bufferData)
 {

@@ -493,11 +493,11 @@ void FaceMain(vector<Face>& model) {
 		color_buffer1(facePointset, bufferData);
 	}
 	Face realPointSet = get_buffer(bufferData,viewCamera);
-	//Index_Dictionary L_bufferData= createL_data(model,L1, realPointSet,keyShift);
-	shadow_Mapping(model, L1, realPointSet, keyShift,bufferData);
+	//更新阴影缓冲图
+	shadow_Mapping(model, L1, realPointSet, keyShift,bufferData,Shadow_bufferData);
 	//光栅绘制
 	glBegin(GL_POINTS);
-	fillColor(bufferData);
+	fillColor(bufferData,Shadow_bufferData);
 	glEnd();
 }
 
