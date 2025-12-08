@@ -211,14 +211,39 @@ int getMinYFromData(
 	return minY;
 }
 
-Buffer_Dictionary JuanJi_buffer(
-	Buffer_Dictionary& bufferData) {
-	Buffer_Dictionary newBF;
-	newBF = bufferData;
-	int maxX = getMaxXFromData(bufferData);
-	int minX = getMinXFromData(bufferData);
-	int maxY = getMaxYFromData(bufferData);
-	int minY = getMinYFromData(bufferData);
+// 获取x,y键的颜色，如果未定义则返回白色
+Color getColorAt(const Buffer_Dictionary& bufferData, int x, int y) {
+	auto it = bufferData.find({ x, y });
+	if (it != bufferData.end()) {
+		return std::get<1>(it->second);
+	}
+	return WHITE;  // 默认白色
+}
+
+
+Buffer_Dictionary JuanJi_buffer(const Buffer_Dictionary& bufferData) {
+	Buffer_Dictionary newBF= bufferData;
+
+	for (int i = 0; i < SHADOWEXTEND;i++) {
+	// 获取有定义的边界
+		int maxX = getMaxXFromData(newBF);
+		int minX = getMinXFromData(newBF);
+		int maxY = getMaxYFromData(newBF);
+		int minY = getMinYFromData(newBF);
+
+		// 扩展，确保边界的软
+		int extendedMinX = minX - 1;
+		int extendedMaxX = maxX + 1;
+		int extendedMinY = minY - 1;
+		int extendedMaxY = maxY + 1;
+
+		for (int i = extendedMinX; i <= extendedMaxX - 1; i++) {
+			for (int j = extendedMinY; j <= extendedMaxY - 1; j++) {
+				Color color1 = getColorAt(newBF, i, j);
+				Color color2 = getColorAt(newBF, i + 1, j);
+				Color color3 = getColorAt(newBF, i, j + 1);
+				Color color4 = getColorAt(newBF, i + 1, j + 1);
+
 	Color newColor;
 	for (int i = minX; i < maxX; i = i + 2) {
 		for (int j = minY; j < maxY; j = j + 2) {
@@ -230,9 +255,9 @@ Buffer_Dictionary JuanJi_buffer(
 			newColor.G = (color1.G + color2.G + color3.G + color4.G) / 3;
 			newColor.B = (color1.B + color2.B + color3.B + color4.B) / 3;
 			std::get<1>(newBF[{i, j}]) = newColor;
-			std::get<1>(newBF[{i + 1, j}]) = newColor;
-			std::get<1>(newBF[{i, j + 1}]) = newColor;
-			std::get<1>(newBF[{i + 1, j + 1}]) = newColor;
+				}
+
+			}
 		}
 	}
 	return newBF;
