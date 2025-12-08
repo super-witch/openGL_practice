@@ -1,0 +1,61 @@
+﻿  main.cpp
+E:\novel\Ccode_test\openGL\openGL\Rasterization.h(108,25): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\face.h(66,21): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\face.h(72,21): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\objLoadManager.h(29,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\objLoadManager.h(72,22): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\objLoadManager.h(153,22): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\objLoadManager.h(196,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\clip.h(40,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\clip.h(133,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Shadow.h(102,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Shadow.h(141,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Shadow.h(147,20): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Curve.h(154,23): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Curve.h(155,22): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Curve.h(162,23): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\Curve.h(163,27): warning C4018: “<”: 有符号/无符号不匹配
+  (编译源文件“main.cpp”)
+  
+E:\novel\Ccode_test\openGL\openGL\main.cpp(185,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(194,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(203,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(212,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(293,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(303,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(330,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(466,20): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(479,21): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(526,20): warning C4018: “<”: 有符号/无符号不匹配
+E:\novel\Ccode_test\openGL\openGL\main.cpp(541,20): warning C4018: “<”: 有符号/无符号不匹配
+  openGL.vcxproj -> E:\novel\Ccode_test\openGL\Debug\openGL.exe
