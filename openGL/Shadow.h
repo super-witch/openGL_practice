@@ -3,11 +3,11 @@
 #include<cmath>
 
 //阴影判定范围
-#define BUFFERNUMBER 4
+#define BUFFERNUMBER 5
 
 //z值判定范围
 #define SHADOWBIAS 5.0f
-
+#define SHADOWBIAS2 0.5f
 //软阴影扩展范围
 #define SHADOWEXTEND 3
 
@@ -30,7 +30,7 @@ int countBlackNeighbors(const Buffer_Dictionary& buffer, int x, int y, int radiu
 	return count;
 }
 
-void strengthenShadow(Buffer_Dictionary& bufferData, const Buffer_Dictionary& OriginalbufferD) {
+void strengthenShadow(Buffer_Dictionary& bufferData, const pixel_Dictionary& OriginalbufferD) {
 	// 收集应该变成黑色而没有的点
 	std::vector<std::pair<int, int>> pointsToBlacken;
 	for (const auto& pair : OriginalbufferD) {
@@ -41,35 +41,35 @@ void strengthenShadow(Buffer_Dictionary& bufferData, const Buffer_Dictionary& Or
 			bool horizontalBlack = false;    //水平
 
 			// 检查垂直方向（上j到下j范围内是否有阴影点）
-			bool hasTopBlack = false, hasBottomBlack = false;
+			float judgeZ[4] = { infinity,infinity,infinity,infinity };
 			for (int j = 1; j <= BUFFERNUMBER; j++) {
-				if (isKeyExists(bufferData, { x, y + j })) {
-					hasTopBlack = true;
+				if (isKeyExists(bufferData, { x, y + j }) ) {
+					judgeZ[0] = std::get<0>(bufferData.at({ x, y + j }));
 					break;
 				}
 			}
 			for (int j = 1; j <= BUFFERNUMBER; j++) {
-				if (isKeyExists(bufferData, { x, y - j })) {
-					hasBottomBlack = true;
+				if (isKeyExists(bufferData, { x, y - j }) ) {
+					judgeZ[1] = std::get<0>(bufferData.at({ x, y - j }));
 					break;
 				}
 			}
-			verticalBlack = hasTopBlack && hasBottomBlack;
+			verticalBlack = judgeZ[0]!= infinity&& judgeZ[1] != infinity&&fabs(judgeZ[1]-judgeZ[0])<SHADOWBIAS2;
 
 			bool hasLeftBlack = false, hasRightBlack = false;
 			for (int j = 1; j <= BUFFERNUMBER; j++) {
-				if (isKeyExists(bufferData, { x - j, y })) {
-					hasLeftBlack = true;
+				if (isKeyExists(bufferData, { x - j, y }) ) {
+					judgeZ[2] = std::get<0>(bufferData.at({ x - j, y }));
 					break;
 				}
 			}
 			for (int j = 1; j <= BUFFERNUMBER; j++) {
 				if (isKeyExists(bufferData, { x + j, y })) {
-					hasRightBlack = true;
+					judgeZ[3] = std::get<0>(bufferData.at({ x + j, y }));
 					break;
 				}
 			}
-			horizontalBlack = hasLeftBlack && hasRightBlack;
+			horizontalBlack = judgeZ[2] != infinity && judgeZ[3] != infinity && fabs(judgeZ[2] - judgeZ[3]) < SHADOWBIAS2;
 
 			// 或者检查3×3邻域内的阴影点数量
 			int neighborBlackCount = countBlackNeighbors(bufferData, x, y, BUFFERNUMBER);
@@ -88,16 +88,42 @@ void strengthenShadow(Buffer_Dictionary& bufferData, const Buffer_Dictionary& Or
 		}
 	}
 }
-
-
-
-
-void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints, bool projectedMode, const Buffer_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
+Face get_buffer(pixel_Dictionary& bufferData, Camera viewCamera, pointLight L, const vector<Face>& obj, bool projectedMode) {
+	vector<Homo3D> realPointSets;
 	Homo3D boxOrign = surround_box_Origin(obj);
 	Camera L_c = { L.position,(L.position - boxOrign).normalize() };
+	Matrix4 mainView = viewCamera.calculateViewMatrix();
+
+	// 灯光视图矩阵
+	Matrix4 lightView = L_c.calculateViewMatrix();
+
+	// 复合矩阵：屏幕空间 → 主相机视图空间 → 世界空间 → 灯光视图空间
+	Matrix4 viewTransform = mainView.Inverse() * lightView;
+
+	Matrix4 fullTransform = viewTransform;
+
+
+	for (const auto& pair : bufferData) {
+		float x = static_cast<float>(pair.first.first);
+		float y = static_cast<float>(pair.first.second);
+		float z = get<0>(pair.second).depth;
+
+		Homo3D p(x, y, z, 1.0);
+		p = p * fullTransform;
+		realPointSets.push_back(p);
+	}	
+	Face realPointSetsFace(realPointSets);	vector<Homo2D> newface;
+	for (auto& it : realPointSetsFace.pointsetModel) {
+		newface.push_back(Homo3Projection(it, projectedMode, -L_c.position));
+	}
+	realPointSetsFace.projectedPointset = newface;
+
+	return realPointSetsFace;
+}
+
+
+void  shadow_Mapping(Face& realPoints,  const pixel_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
 	Index_Dictionary shadow_buffer;      //最靠近光源的
-	//光源视角、投影
-	projectface(realPoints, L_c, projectedMode);
 	vector<Homo2D>& model = realPoints.projectedPointset;
 	for (int i = 0; i < model.size(); i++)
 	{
@@ -136,11 +162,12 @@ void  shadow_Mapping(const vector<Face>& obj, pointLight L, Face& realPoints, bo
 }
 
 
-void shadow_Mapping_MultipyLight(const vector<Face>& obj, vector<pointLight> L, Face& realPoints, bool projectedMode,const Buffer_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
+void shadow_Mapping_MultipyLight(const vector<Face>& obj, vector<pointLight> L, Camera viewCamera, bool projectedMode,pixel_Dictionary& bufferData, Buffer_Dictionary& shadow_bufferData) {
 	vector<Buffer_Dictionary> MultiShadow_buffer;
 	for (int i = 0; i < L.size(); i++) {
 		Buffer_Dictionary Shadow_buffer;
-		shadow_Mapping(obj, L[i], realPoints, projectedMode, bufferData, Shadow_buffer);
+		Face realPoints = get_buffer(bufferData,viewCamera, L[i],obj,projectedMode);
+		shadow_Mapping( realPoints, bufferData, Shadow_buffer);
 		MultiShadow_buffer.push_back(Shadow_buffer);
 	}
 	Buffer_Dictionary finalShadow_buffer= MultiShadow_buffer[0];

@@ -23,14 +23,14 @@ Homo2D intersection(Line lin, Homo2D en, Homo2D ou)
 	float t = (ACx * CDy - ACy * CDx) / det;
 	Color color = en.color * (1 - t) + ou.color * t;
 	float depth = en.depth * (1 - t) + ou.depth * t;
-
+	UV vt = en.vt * (1 - t) + ou.vt * t;
 	// 插值法线
 	vNormal normal;
 	normal.vx = en.vn.vx * (1 - t) + ou.vn.vx * t;
 	normal.vy = en.vn.vy * (1 - t) + ou.vn.vy * t;
 	normal.vz = en.vn.vz * (1 - t) + ou.vn.vz * t;
 
-	return { p1.x + t * ABx, p1.y + t * ABy ,depth,color,normal};
+	return { p1.x + t * ABx, p1.y + t * ABy ,depth,color,normal,vt};
 }
 //裁剪
 void  clip(Face& obj, Line bian)
@@ -128,7 +128,7 @@ bool back_face_culling(Camera camera, Face& face,bool key)
 
 }
 
-void color_buffer1(const vector<Homo2D>model, std::map<std::pair<int, int>, std::tuple<float,Color>>& bufferData)
+void color_buffer1(Face se, const vector<Homo2D>model, pixel_Dictionary& bufferData)
 {	 //左下0,0点
 	for (int i = 0; i < model.size(); i++)
 	{
@@ -138,14 +138,13 @@ void color_buffer1(const vector<Homo2D>model, std::map<std::pair<int, int>, std:
 		auto key = std::make_pair(x, y);
 		auto it = bufferData.find(key);
 		if (it != bufferData.end()) {
-			if (z > get<0>(bufferData[key]))
+			if (z >get<0>(bufferData[key]).depth)
 			{
-				std::get<0>(it->second) = z;        // 修改深度
-				std::get<1>(it->second) = model[i].color;       // 修改颜色
+				bufferData[key] = { model[i],se.materialName };
 			}
 		}
 		else {
-			bufferData[key] = std::make_tuple(z, model[i].color);
+			bufferData[key] = { model[i],se.materialName };
 		}
 	}
 

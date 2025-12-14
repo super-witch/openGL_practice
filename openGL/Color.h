@@ -78,7 +78,16 @@ typedef struct material {
     Color Ka;
     Color Kd;
     Color Ks;
+    string kdMapName;
 }material;
+
+
+
+typedef struct ImageData {
+    int width;
+    int height;
+    std::vector<Color> data;
+}ImageDara;                           // 使用一维向量存储颜色数据
 
 #define WHITE Color(1.0f, 1.0f, 1.0f)
 #define RED Color(1.0f, 0.0f, 0.0f)
@@ -126,9 +135,73 @@ float getDepLerp(float val, float minVal, float maxVal, float minD=0, float MaxD
 }
 
 
+std::vector<Color> convertMatToColors(const cv::Mat& image, bool normalize = true) {
+    std::vector<Color> colors;
 
+    if (image.empty()) {
+        std::cerr << "错误: 图像为空!" << std::endl;
+        return colors;
+    }
 
+    // 检查通道数
+    int channels = image.channels();
+    if (channels < 3) {
+        std::cerr << "警告: 图像只有 " << channels << " 个通道，可能需要转换" << std::endl;
+    }
 
+    int totalPixels = image.rows * image.cols;
+    colors.reserve(totalPixels);
+
+    switch (image.type()) {
+    case CV_8UC3: {  
+        //先行再列
+        for (int r = 0; r < image.rows; r++) {
+            const cv::Vec3b* row = image.ptr<cv::Vec3b>(r);
+            for (int c = 0; c < image.cols; c++) {
+                const cv::Vec3b& pixel = row[c];
+                // OpenCV是BGR顺序，Color是RGB顺序
+                if (normalize) {
+                    colors.emplace_back(
+                        pixel[2] / 255.0f,  // R
+                        pixel[1] / 255.0f,  // G
+                        pixel[0] / 255.0f   // B
+                    );
+                }
+                else {
+                    colors.emplace_back(
+                        static_cast<float>(pixel[2]),  // R
+                        static_cast<float>(pixel[1]),  // G
+                        static_cast<float>(pixel[0])   // B
+                    );
+                }
+            }
+        }
+        break;
+    }
+    case CV_32FC3: {  // 32位浮点3通道图像
+        for (int r = 0; r < image.rows; r++) {
+            const cv::Vec3f* row = image.ptr<cv::Vec3f>(r);
+            for (int c = 0; c < image.cols; c++) {
+                const cv::Vec3f& pixel = row[c];
+                // OpenCV是BGR顺序，Color是RGB顺序
+                colors.emplace_back(pixel[2], pixel[1], pixel[0]);
+            }
+        }
+        break;
+    }
+    default:
+        std::cerr << "不支持的图像类型: " << image.type() << std::endl;
+        // 可以尝试转换为CV_8UC3再处理
+        cv::Mat converted;
+        image.convertTo(converted, CV_8UC3);
+        if (!converted.empty()) {
+            return convertMatToColors(converted, normalize);
+        }
+        break;
+    }
+
+    return colors;
+}
 
 
 

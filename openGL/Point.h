@@ -1,6 +1,27 @@
 #pragma once
 #include"constant.h"
 
+struct UV {
+	float u;
+	float v;
+	UV(float u = 0, float v = 0) : u(u), v(v) {};
+	UV operator*(float t);
+	UV operator/(float t);
+	UV operator+(UV vnn);
+	UV operator-(UV vnn);
+};
+UV UV::operator*(float t) {
+	return { u * t,v * t};
+}
+UV UV::operator+(UV vnn) {
+	return{ u + vnn.u,v + vnn.v };
+}
+UV UV::operator-(UV vnn) {
+	return{ u - vnn.u,v - vnn.v };
+}
+UV UV::operator/(float t) {
+	return { u / t,v/ t};
+}
 
 struct vNormal {
 	float vx;
@@ -41,7 +62,8 @@ struct Homo2D {
 	float depth;
 	Color color;
 	vNormal vn;
-	Homo2D(float x = 0, float y = 0, float de = 0, Color co = BLACK, vNormal v = {0,0,0}) : x(x), y(y), depth(de), color(co),vn(v) {
+	UV vt;
+	Homo2D(float x = 0, float y = 0, float de = 0, Color co = BLACK, vNormal v = { 0,0,0 }, UV t = {0,0}) : x(x), y(y), depth(de), color(co), vn(v),vt(t) {
 	};
 	void setColor(Color c) {
 		color = c;
@@ -67,7 +89,8 @@ public:
 	float z;
 	float w;
 	vNormal vn;
-	Homo3D(float x = 0, float y = 0, float z = 0, float w = 1, vNormal v = {0,0,0}) : x(x), y(y), z(z), w(w), vn(v) {};
+	UV vt;
+	Homo3D(float x = 0, float y = 0, float z = 0, float w = 1, vNormal v = { 0,0,0 }, UV t = {0,0}) : x(x), y(y), z(z), w(w), vn(v),vt(t) {};
 	float magnitude() {
 		return sqrt(x * x + y * y + z * z);
 	}
@@ -77,10 +100,10 @@ public:
 		return { x / length,y / length, z / length, w };
 	}
 	Homo3D operator+(const Homo3D& other) const {
-		return Homo3D(x + other.x, y + other.y, z + other.z, w, vn);
+		return Homo3D(x + other.x, y + other.y, z + other.z, w, vn,vt);
 	}
 	Homo3D operator+(const float& other) const {
-		return Homo3D(x + other, y + other, z + other, w, vn);
+		return Homo3D(x + other, y + other, z + other, w, vn,vt);
 	}
 	// 复合加法赋值
 	Homo3D& operator+=(const Homo3D& other) {
@@ -97,7 +120,7 @@ public:
 	}
 	// 向量减法
 	Homo3D operator-(const Homo3D& other) const {
-		return Homo3D(x - other.x, y - other.y, z - other.z, w, vn);
+		return Homo3D(x - other.x, y - other.y, z - other.z, w, vn,vt);
 	}
 
 	// 复合减法赋值
@@ -112,7 +135,7 @@ public:
 		return Homo3D(-x, -y, -z);
 	}
 	Homo3D operator*(float scalar) const {
-		return Homo3D(x * scalar, y * scalar, z * scalar,w,vn);
+		return Homo3D(x * scalar, y * scalar, z * scalar,w,vn,vt);
 	}
 	//矩阵在左，向量在右
 	Homo3D operator*(Matrix4 matrix) const {
@@ -122,6 +145,7 @@ public:
 		result.z = matrix.m[2][0] * x + matrix.m[2][1] * y + matrix.m[2][2] * z + matrix.m[2][3] * w;
 		result.w = matrix.m[3][0] * x + matrix.m[3][1] * y + matrix.m[3][2] * z + matrix.m[3][3] * w;
 		result.vn = vn;
+		result.vt = vt;
 		return  result;
 	}
 	Homo3D& operator*=(float scalar) {
@@ -180,6 +204,7 @@ float pointProduct(Homo3D a, vNormal b)
 //点的投影
 Homo2D Homo3Projection(Homo3D H3, bool flag, Homo3D viewP) {
 	vNormal v3 = H3.vn;
+	UV vt3 = H3.vt;
 	Matrix4 per(project, viewP.x, viewP.y, viewP.z);
 	Matrix4 zhe(mode::rotate, 1, 1, 0);
 	if (flag) {
@@ -193,7 +218,7 @@ Homo2D Homo3Projection(Homo3D H3, bool flag, Homo3D viewP) {
 		H3 = H3 * zhe;
 	}
 
-	return { H3.x,H3.y ,H3.z,BLACK,v3};
+	return { H3.x,H3.y ,H3.z,BLACK,v3,vt3};
 }
 
 Homo3D calculateRotationAngles(Homo3D homo) {
@@ -293,14 +318,37 @@ vNormal findVNFromY(Homo2D p1, Homo2D p2, float y0) {
 	// 计算参数t
 	float t = (y0 - p1.y) / (p2.y - p1.y);
 
-	// 线性插值计算z值
+	// 线性插值计算vn值
 	vNormal z0 = p1.vn + (p2.vn - p1.vn) * t;
 
 	return z0;
 }
+ 
+//new
+UV find_VT_FromY(Homo2D p1, Homo2D p2, float y0) {
 
+	// 检查直线是否垂直（y方向无变化）
+	if (fabs(p2.y - p1.y) < 1e-6f) {
+		if (fabs(y0 - p1.y) < 1e-6f) {
+			// 如果y0等于端点y值，返回z1（或平均值）
+			return (p1.vt + p2.vt) / 2.0f;
+		}
+		else {
+			// 该y值不在直线上
+			return NAN; // 或抛出异常
+		}
+	}
 
-// 球形线性插值实现
+	// 计算参数t
+	float t = (y0 - p1.y) / (p2.y - p1.y);
+	t = std::fmin(1, fmax(0, t));
+	// 线性插值计算vt值
+	UV vt0 = p1.vt+ (p2.vt + p1.vt * -1)*t  ;
+
+	return vt0;
+}
+
+// 线性插值实现
 vNormal slerp(vNormal a, vNormal b, float t) {
 	// 计算点积和夹角
 	float dot = a.vx * b.vx + a.vy * b.vy + a.vz * b.vz;

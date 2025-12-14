@@ -1,39 +1,42 @@
 ﻿#include <stdlib.h>
 #include <stdio.h>
+#include <opencv2/opencv.hpp>
+#include<GL/freeglut.h>
 #define GLUT_DISABLE_ATEXIT_HACK
-#include "glut.h"//GL/
 #include "constant.h"
 #include<memory>
 
+
 //操作模式
-shadingMode current_shadingMode = phong; //初始为phong着色
+shadingMode current_shadingMode = gouraud; //初始为phong着色
 mode current_mode =scale;    //初始为正常模式
 Axis current_axis = all_axis;  //初始为全轴
 //摄像机位置与视线方向
 Camera viewCamera = { {0,0,100},{0,0,-1} };
 //模型旋转轴
 Homo3D c1 = { 0,0,0 }, homoc = { 0,0,1,0};
-//= {f1, f2,f3,f4,f5,f6,f7,f8,f10,f9 }
+//= {f1, f2,f3,f4,f5,f6,f7,f8,f10,f9 }, { {100,0,100},{1,1,1} }
 
 vector<Gameobject> AllScene;
 vector<Homo3D> world_coordinate= {worldOrigin,x_Axis,y_Axis,z_Axis};
-
-vector<pointLight> L1 = { { {0,0,100},{1,1,1} },{ {100,0,100},{1,1,1} } };
+//
+vector<pointLight> L1 = { { {0,0,100},{1,1,1} }};
 
 //用户输入相关
 int CinTransformIndex = 0, CinOriginIndex=1;
-Homo3D transformation[3] = { {0,0,0},{300,300,300},{0,0,0} };//平移旋转缩放
+Homo3D transformation[3] = { {0,0,0},{3000,3000,3000},{0,0,0} };//平移旋转缩放
 Homo3D transformation_view[3] = { {0,0,0},{1,1,1},{0,0,0} };
 
 bool keyShift = false;
 float rotateM1 =0;
 float rotateV=0;
 
-LightSource MaterialBall("scene1.mtl");
+LightSource MaterialBall("./model/Phainon.mtl");
 ObjLoader objManager;
 void init() {
-	objManager = ObjLoader("scene1.obj");
+	objManager = ObjLoader("./model/Phainon.obj");
 	AllScene = fromOBJloadFace(objManager,PURPLE);
+
 	//ownface = { f1, f2, f3, f4, f5, f6, f7, f8, f10, f9 };
 	//for (int i = 0; i < controlPoints.size(); i++) {
 	//	ownface.push_back(Face(controlPoints[i],RED));
@@ -442,26 +445,30 @@ Gameobject transformObjectToFaceSet(vector<Gameobject>&  Scene ) {
 }
 
 
-void resetColorAftershading(vector<Homo2D>&pointset,Face se) {
+void resetColorAftershading(pixel_Dictionary&pointset,LightSource Ls) {
 	switch (current_shadingMode) {
 	case flat:
-		for (auto& it : pointset) {
-			it.color = se.color;
-		}
 		break;
 	case gouraud:
-		//顶点颜色已在LightFace中设置
+		for (auto& it : pointset) {
+			string ImageName =Ls.MatSets[get<1>(it.second)].kdMapName;
+			if (ImageName.empty())continue;
+			Color BaseColor = getColorFromImage(get<0>(it.second).vt, Ls, ImageName);
+			Color realColor = get<0>(it.second).color * mixPara + BaseColor * (1.0f - mixPara);
+			get<0>(it.second).color = realColor;
+		}
+		//顶点颜色已设置
 		break;
 	case phong:
 		for(auto& it : pointset) {
-			setPointColorAfterLight(it, se.materialName, environmentLight, L1, viewCamera, MaterialBall, keyShift);
+			setPointColorAfterLight(get<0>(it.second), get<1>(it.second), environmentLight, L1, viewCamera, MaterialBall, keyShift);
 		}
 		break;
 	}
 }
 
 void FaceMain(vector<Face>& model) {
-	Buffer_Dictionary bufferData;
+	pixel_Dictionary bufferData;
 	Buffer_Dictionary Shadow_bufferData;
 	for (int i = 0; i < model.size(); i++) {
 
@@ -486,16 +493,19 @@ void FaceMain(vector<Face>& model) {
 		//填充
 		vector<Line> ET = selected.createLine();
 		vector<Homo2D> facePointset = polygon_filtter(ET);   //该2D点集中法线插值与颜色插值均已设置好，且是针对面的
-
-		//根据模式重新设置颜色
-		resetColorAftershading(facePointset, selected);
+		if (current_shadingMode == flat) {
+			for (auto& it : facePointset) {
+				it.color = selected.color;
+			}
+		}
 		//消隐
-		color_buffer1(facePointset, bufferData);
+		color_buffer1(selected,facePointset, bufferData);
 	}
-	//用字典与摄像机重构3D点
-	Face realPointSet = get_buffer(bufferData,viewCamera);
+	//根据模式重新设置颜色
+	resetColorAftershading(bufferData, MaterialBall);  
+
 	//更新阴影缓冲图
-	shadow_Mapping_MultipyLight(model, L1, realPointSet, keyShift, bufferData, Shadow_bufferData);
+	shadow_Mapping_MultipyLight(model, L1, viewCamera,keyShift, bufferData, Shadow_bufferData);
 	Shadow_bufferData = JuanJi_buffer(Shadow_bufferData);
 	//光栅绘制
 	glBegin(GL_POINTS);
@@ -505,7 +515,7 @@ void FaceMain(vector<Face>& model) {
 
 
 void curveMain(vector<Face> controlP) {
-	std::map<std::pair<int, int>, std::tuple<float, Color>> bufferData;
+	pixel_Dictionary bufferData;
 	Face newface;
 	//newface.pointsetModel=getBezierCurveSet(controlP, DERTAT);
 	newface.pointsetModel = getBlineCurveSet(controlP,2,2, DERTAT);
@@ -513,7 +523,7 @@ void curveMain(vector<Face> controlP) {
 	for (auto& it : newface.projectedPointset) {
 		it.setColor(PINK);
 	}
-	color_buffer1(newface.projectedPointset, bufferData);
+	//color_buffer1(newface.projectedPointset, bufferData);
 	glBegin(GL_POINTS);
 	fillColor(bufferData);
 	glEnd();

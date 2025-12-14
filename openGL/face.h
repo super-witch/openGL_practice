@@ -99,20 +99,7 @@ Homo3D surround_box_Origin(vector<Face> obj)
 	return Homo3D{ (x_MAX + x_MIN) / 2, (y_MAX + y_MIN) / 2 ,(z_MAX + z_MIN) / 2 };
 }
 
-Face get_buffer(Buffer_Dictionary& bufferData, Camera viewCamera) {
-	vector<Homo3D> realPointSets;
-	Matrix4 viewMatrix = viewCamera.calculateViewMatrix().Inverse();
-	for (const auto& pair : bufferData) {
-		float x = static_cast<float>(pair.first.first);
-		float y = static_cast<float>(pair.first.second);
-		float z = std::get<0>(pair.second);
 
-		Homo3D p(x, y, z, 1.0);
-		p = p * viewMatrix;
-		realPointSets.push_back(p);
-	}
-	return { realPointSets };
-}
 
 
 //投影函数
@@ -122,6 +109,7 @@ void projectface(Face& f,Camera realCamera,bool projectedMode) {
 	for (auto& it : f.pointsetModel) {
 		Homo3D viewSpacePoint = it * viewMatrix;
 		viewSpacePoint.vn = it.vn;//viewP体现z值
+		viewSpacePoint.vt = it.vt;
 		newface.push_back(Homo3Projection(viewSpacePoint, projectedMode, -realCamera.position));
 	}
 	f.projectedPointset = newface;

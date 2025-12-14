@@ -4,6 +4,7 @@
 #include<map>
 #include <tuple>
 #include <string> 
+
 using namespace std;
 #define infinity  10000000.0f
 
@@ -40,10 +41,12 @@ enum mode {
 
 typedef std::map<std::pair<int, int>, std::tuple<float, Color>> Buffer_Dictionary;
 typedef std::map<std::pair<float, float>, int> Index_Dictionary;
-
-
 #include"Matrix_.h"
 #include"Point.h"
+
+
+typedef std::map<std::pair<int, int>, std::tuple<Homo2D,string>>pixel_Dictionary;
+
 #include"Rasterization.h"
 #include"face.h"
 typedef vector<Face> Gameobject;

@@ -23,10 +23,10 @@ public:
 		// 标准化视线方向（注意：viewDirection 应该是从视点看向目标的方向）
 		Homo3D forward = direction.normalize();
 		Homo3D right =crossProduct(forward,up ).normalize();
-		up = crossProduct(right,forward ).normalize();
+		Homo3D calculatedUp = crossProduct(right, forward).normalize();  // 使用局部变量 = crossProduct(right,forward ).normalize();
 		Matrix4 rotationMatrix;
 		rotationMatrix.m[0][0] = right.x;   rotationMatrix.m[0][1] = right.y;   rotationMatrix.m[0][2] = right.z;   rotationMatrix.m[0][3] = 0;
-		rotationMatrix.m[1][0] = up.x;      rotationMatrix.m[1][1] = up.y;      rotationMatrix.m[1][2] = up.z;      rotationMatrix.m[1][3] = 0;
+		rotationMatrix.m[1][0] = calculatedUp.x;      rotationMatrix.m[1][1] = calculatedUp.y;      rotationMatrix.m[1][2] = calculatedUp.z;      rotationMatrix.m[1][3] = 0;
 		rotationMatrix.m[2][0] = -forward.x; rotationMatrix.m[2][1] = -forward.y; rotationMatrix.m[2][2] = -forward.z; rotationMatrix.m[2][3] = 0;
 		rotationMatrix.m[3][0] = 0;         rotationMatrix.m[3][1] = 0;         rotationMatrix.m[3][2] = 0;         rotationMatrix.m[3][3] = 1;
 
@@ -83,7 +83,6 @@ public:
 bool compareByX(const Line& a, const Line& b) {
 	return a.interx < b.interx;  // 升序排序
 }
-
 vector<Homo2D> polygon_filtter(vector<Line>ET) {
 	vector<Homo2D>filledPoints;
 	if (ET.size() < 3) return filledPoints;
@@ -109,21 +108,23 @@ vector<Homo2D> polygon_filtter(vector<Line>ET) {
 			float z1 = findZFromY(AET[i].point1, AET[i].point2, scany);
 			float z2 = findZFromY(AET[i + 1].point1, AET[i + 1].point2, scany);
 			Color c1 = findColorFromY(AET[i].point1, AET[i].point2, scany);
-			Color c2 = findColorFromY(AET[i+1].point1, AET[i+1].point2, scany);
+			Color c2 = findColorFromY(AET[i + 1].point1, AET[i + 1].point2, scany);
+			//new
+			UV vt1 = find_VT_FromY(AET[i].point1, AET[i].point2, scany);
+			UV vt2 = find_VT_FromY(AET[i + 1].point1, AET[i + 1].point2, scany);
+
 			vNormal v1 = findVNFromYSlerp(AET[i].point1, AET[i].point2, scany);
-			vNormal v2 = findVNFromYSlerp(AET[i+1].point1, AET[i+1].point2, scany);
-			Line line = { {AET[i].interx,scany,z1,c1,v1},{AET[i + 1].interx,scany,z2,c2,v2} };
+			vNormal v2 = findVNFromYSlerp(AET[i + 1].point1, AET[i + 1].point2, scany);
+			Line line = { {AET[i].interx,scany,z1,c1,v1,vt1},{AET[i + 1].interx,scany,z2,c2,v2,vt2} };
 			line.savePoint(); //display_gragh(line.getPointSet());
 			filledPoints.insert(filledPoints.end(), line.getPointSet().begin(), line.getPointSet().end());
 		}
 		for (Line& it : AET) {
 			it.interx += it.m;
-		} 
+		}
 	}
 	return filledPoints;
 }
-
-
 
 
 
@@ -195,6 +196,7 @@ void Line::savePoint() {
 	float x2 = point2.x, y2 = point2.y, z2 = point2.depth;
 	Color C1 = point1.color, C2 = point2.color;
 	vNormal v1 = point1.vn, v2 = point2.vn;
+	UV vt1 = point1.vt, vt2 = point2.vt;//UV
 
 	bool steep = abs(y2 - y1) > abs(x2 - x1);
 	if (steep) {
@@ -206,6 +208,7 @@ void Line::savePoint() {
 		std::swap(y1, y2);
 		std::swap(z1, z2);
 		std::swap(C1, C2);
+		std::swap(vt1, vt2);
 		swap(v1, v2);
 	}
 	int dx = x2 - x1;
@@ -220,12 +223,14 @@ void Line::savePoint() {
 		float depth = z1 + t * (z2 - z1);
 		Color newColor = C1 * (1 - t) + C2 * t;
 		vNormal newvn = v1 * (1 - t) + v2 * t;
+		UV newvt = vt1 * (1 - t) + vt2 * t;
+
 		newvn.normalize();
 		if (steep) {
-			addPoint({ y, x, depth,newColor,newvn });
+			addPoint({ y, x, depth,newColor,newvn,newvt });
 		}
 		else {
-			addPoint({ x, y, depth,newColor,newvn });
+			addPoint({ x, y, depth,newColor,newvn,newvt });
 		}
 
 		if (d < 0) {
