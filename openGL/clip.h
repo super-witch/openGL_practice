@@ -59,7 +59,8 @@ void  clip(Face& obj, Line bian)
 }
 ////////////////消隐////////////////
 //dictionary tool
-bool isKeyExists(const Buffer_Dictionary& buffer, const std::pair<int, int>& key) {
+template <typename T>
+bool isKeyExists(const T& buffer, const std::pair<int, int>& key) {
 	auto it = buffer.find(key);
 	if (it != buffer.end()) {
 		return true;
@@ -105,12 +106,12 @@ float getMaxZFromData(
 }
 
 //背面剔除
-bool back_face_culling(Camera camera, Face& face,bool key)
+bool back_face_culling(Camera camera, Face& face)
 {
 	face.updateOrigin();
 	Homo3D norm = face.caculateNormal();
 	Homo3D eyedirection;
-	if (key) {
+	if (camera.projectedMode) {
 		// 透视投影
 		eyedirection = face.origin - camera.position;
 	}
@@ -132,8 +133,8 @@ void color_buffer1(Face se, const vector<Homo2D>model, pixel_Dictionary& bufferD
 {	 //左下0,0点
 	for (int i = 0; i < model.size(); i++)
 	{
-		int x = model[i].x;
-		int y = model[i].y;
+		int x =round( model[i].x);
+		int y =round( model[i].y);
 		float z = model[i].depth;
 		auto key = std::make_pair(x, y);
 		auto it = bufferData.find(key);

@@ -16,7 +16,8 @@ public:
 	Homo3D position;
 	Homo3D direction;
 	Homo3D up;
-	Camera(Homo3D pos = { 0,0,0 }, Homo3D dir = { 0,0,-1,0 }) :position(pos), direction(dir) {
+	bool projectedMode;
+	Camera(Homo3D pos = { 0,0,0 }, Homo3D dir = { 0,0,-1,0 },bool keyShift=false) :position(pos), direction(dir),projectedMode(keyShift) {
 		up = { 0,1,0,0 };
 	};
 	Matrix4 calculateViewMatrix() {
@@ -64,6 +65,7 @@ public:
 	virtual ~Gragh() = default;
 };
 
+
 class Line :public Gragh {
 
 public:
@@ -83,70 +85,8 @@ public:
 bool compareByX(const Line& a, const Line& b) {
 	return a.interx < b.interx;  // 升序排序
 }
-vector<Homo2D> polygon_filtter(vector<Line>ET) {
-	vector<Homo2D>filledPoints;
-	if (ET.size() < 3) return filledPoints;
-	vector<Line>AET; int ymax = ET[0].ymax, ymin = ET[0].ymin;
-	for (Line it : ET) {
-		it.savePoint(); //display_gragh(it.getPointSet());
-		//filledPoints.insert(filledPoints.end(), it.getPointSet().begin(), it.getPointSet().end());
-		if (it.ymax > ymax)ymax = it.ymax;
-		if (it.ymin < ymin)ymin = it.ymin;
-	}
-	for (float scany = ymin; scany < ymax; scany++) {
-		for (const Line& it : ET) {
-			if (it.point1.y == it.point2.y) continue;
-			if (it.ymin == scany)AET.push_back(it);
-		}
-		AET.erase(
-			std::remove_if(AET.begin(), AET.end(),
-				[&scany](const Line& x) { return x.ymax <= scany; }),
-			AET.end()
-		);
-		std::sort(AET.begin(), AET.end(), compareByX);
-		for (int i = 0; i + 1 < AET.size(); i += 2) {
-			float z1 = findZFromY(AET[i].point1, AET[i].point2, scany);
-			float z2 = findZFromY(AET[i + 1].point1, AET[i + 1].point2, scany);
-			Color c1 = findColorFromY(AET[i].point1, AET[i].point2, scany);
-			Color c2 = findColorFromY(AET[i + 1].point1, AET[i + 1].point2, scany);
-			//new
-			UV vt1 = find_VT_FromY(AET[i].point1, AET[i].point2, scany);
-			UV vt2 = find_VT_FromY(AET[i + 1].point1, AET[i + 1].point2, scany);
-
-			vNormal v1 = findVNFromYSlerp(AET[i].point1, AET[i].point2, scany);
-			vNormal v2 = findVNFromYSlerp(AET[i + 1].point1, AET[i + 1].point2, scany);
-			Line line = { {AET[i].interx,scany,z1,c1,v1,vt1},{AET[i + 1].interx,scany,z2,c2,v2,vt2} };
-			line.savePoint(); //display_gragh(line.getPointSet());
-			filledPoints.insert(filledPoints.end(), line.getPointSet().begin(), line.getPointSet().end());
-		}
-		for (Line& it : AET) {
-			it.interx += it.m;
-		}
-	}
-	return filledPoints;
-}
 
 
-
-
-
-class Ellipse :public Gragh {
-private:
-	int a;
-	int b;
-public:
-	Ellipse(Homo2D origin, int ai = 0, int bi = 0) :a(ai), b(bi), Gragh(origin) {};
-	virtual void savePoint();
-};
-
-class Parabola :public Gragh {
-private:
-	int p;
-	int border1, border2;
-public:
-	Parabola(Homo2D origin, int pi = 0, int b1 = 0, int b2 = 0) :p(pi), border1(b1), border2(b2), Gragh(origin) {};
-	virtual void savePoint();
-};
 
 void Line::savePoint(Color color) {
 	float x1 = point1.x, y1 = point1.y, z1 = point1.depth;
@@ -245,91 +185,3 @@ void Line::savePoint() {
 
 }
 
-void Ellipse::savePoint() {
-	int x1, y1;
-	x1 = a * a / sqrt(a * a + b * b);
-	y1 = b * b / sqrt(a * a + b * b);
-	int di;
-	float xi, yir;
-	xi = 0, yir = b;
-	addPoint({ xi, yir });
-	addPoint({ -xi, yir });
-	addPoint({ xi, -yir });
-	addPoint({ -xi, -yir });
-	di = -a * a - 4 * b * b + a * a * b * 4;
-	for (xi = 1; xi <= x1; xi++) {
-		if (di >= 0) {
-			yir = yir;
-			di = di - 4 * b * b * (2 * xi + 2);
-		}
-		else {
-			di = di - 4 * b * b * (2 * xi + 2) - 8 * a * a * (1 - yir);
-			yir = yir - 1;
-		}
-		addPoint({ xi, yir });
-		addPoint({ -xi, yir });
-		addPoint({ xi, -yir });
-		addPoint({ -xi, -yir });
-	}
-	float xir, yi;
-	xir = a, yi = 0;
-	addPoint({ xir, yi });
-	addPoint({ -xir, yi });
-	addPoint({ xir, -yi });
-	addPoint({ -xir, -yi });
-	di = a * b * b * 4 - 4 * a * a - b * b;
-	for (yi = 1; yi <= y1; yi++) {
-		if (di >= 0) {
-			xir = xir;
-			di = di - 8 * a * a - 8 * a * a * (yi);
-		}
-		else {
-			di = di - 8 * a * a - 8 * a * a * (yi)+8 * b * b * (xir)-8 * b * b;
-			xir = xir - 1;
-		}
-		addPoint({ xir, yi });
-		addPoint({ -xir, yi });
-		addPoint({ xir, -yi });
-		addPoint({ -xir, -yi });
-	}
-}
-
-void Parabola::savePoint() {
-	int di;
-	float xi, yir;
-	int x1 = border1; int x2 = border2;
-	xi = 0, yir = 0;
-	addPoint({ xi, yir });
-	addPoint({ -xi, yir });
-	di = 1 - 2 * p;
-	for (xi = 1; xi <= fmax(x1, x2); xi++) {
-		if (di < 0) {
-			yir = yir;
-			di = di + 4 * xi + 2;
-		}
-		else {
-			di = di + 4 * xi + 2 - 4 * p;
-			yir = yir + 1;
-		}
-		if (xi >= p)break;
-		addPoint({ xi, yir });
-		addPoint({ -xi, yir });
-	}
-	float xir, yi;
-	xir = p, yi = p / 2;
-	if (xir <= fmax(x1, x2))
-		addPoint({ xir, yi });
-	di = 4 - 8 * p;
-	for (yi; xir <= fmax(x1, x2); yi++) {
-		if (di >= 0) {
-			xir = xir;
-			di = di - 8 * p;
-		}
-		else {
-			di = di + 8 * xir + 8 - 8 * p;
-			xir = xir + 1;
-		}
-		addPoint({ xir, yi });
-		addPoint({ -xir, yi });
-	}
-}

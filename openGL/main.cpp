@@ -12,38 +12,32 @@ shadingMode current_shadingMode = gouraud; //初始为phong着色
 mode current_mode =scale;    //初始为正常模式
 Axis current_axis = all_axis;  //初始为全轴
 //摄像机位置与视线方向
-Camera viewCamera = { {0,0,100},{0,0,-1} };
-//模型旋转轴
-Homo3D c1 = { 0,0,0 }, homoc = { 0,0,1,0};
-//= {f1, f2,f3,f4,f5,f6,f7,f8,f10,f9 }, { {100,0,100},{1,1,1} }
+Camera viewCamera = { {0,0,100},{0,0,-1} ,false};
 
 vector<Gameobject> AllScene;
 vector<Homo3D> world_coordinate= {worldOrigin,x_Axis,y_Axis,z_Axis};
-//
-vector<pointLight> L1 = { { {0,0,100},{1,1,1} }};
+
+pointLight L_1 =  { {100,0,0},{1,1,1} } ;
+std::vector<Light*> L1;
+
 
 //用户输入相关
 int CinTransformIndex = 0, CinOriginIndex=1;
-Homo3D transformation[3] = { {0,0,0},{3000,3000,3000},{0,0,0} };//平移旋转缩放
+Homo3D transformation[3] = { {0,0,0},{1000,1000,1000},{0,0,0} };//平移旋转缩放
 Homo3D transformation_view[3] = { {0,0,0},{1,1,1},{0,0,0} };
 
-bool keyShift = false;
+bool sceneChanged;
+bool underlight = false;
 float rotateM1 =0;
 float rotateV=0;
 
-LightSource MaterialBall("./model/Phainon.mtl");
+LightSource MaterialBall("./model/klane.mtl");
 ObjLoader objManager;
 void init() {
-	objManager = ObjLoader("./model/Phainon.obj");
+	objManager = ObjLoader("./model/klane.obj");
 	AllScene = fromOBJloadFace(objManager,PURPLE);
-
-	//ownface = { f1, f2, f3, f4, f5, f6, f7, f8, f10, f9 };
-	//for (int i = 0; i < controlPoints.size(); i++) {
-	//	ownface.push_back(Face(controlPoints[i],RED));
-	//}
+	L1.push_back(&L_1);
 }
-
-
 
 ////xyz轴分别要旋转的夹角
 void switchXYZ(Axis a, Homo3D& p, float add) {
@@ -159,7 +153,7 @@ void keyboard(unsigned char key, int x, int y)
 	case 'T':
 	case't':
 	{
-		keyShift = !keyShift;
+		viewCamera.projectedMode = !viewCamera.projectedMode;
 		glutPostRedisplay();
 		break;
 	}
@@ -178,6 +172,12 @@ void keyboard(unsigned char key, int x, int y)
 	case'p':
 	{
 		current_mode = mode::OriginChoose;
+		glutPostRedisplay();
+		break;
+	}
+	case'1':
+	{
+		underlight = !underlight;
 		glutPostRedisplay();
 		break;
 	}
@@ -278,7 +278,13 @@ void mouse(int button, int state, int x, int y)
 }
 
 
+
+
+
 void clearMa() {
+	for (auto& pair : L1) {
+		pair->shadow_buffer.clear();
+	}
 	transformation[0] = { 0,0,0 }; transformation[1] = { 1,1,1 };
 	transformation[2] = { 0,0,0 };
 
@@ -287,6 +293,7 @@ void clearMa() {
 	rotateV=0;
 	rotateM1 = 0;
 
+	
 }
 
 
@@ -339,6 +346,8 @@ void Rotate(Homo3D axis_point, Homo3D axis_direction, float rotate_angle,Gameobj
 	}
 }
 
+
+
 //视点平移
 void Transform_view() {
 	Matrix4 T(mode::view_translate, transformation_view[view_translate - 5].x, transformation_view[view_translate - 5].y, transformation_view[view_translate - 5].z);
@@ -376,7 +385,6 @@ void Rotate_view(Homo3D axis_point, Homo3D axis_direction, float rotate_angle) {
 	viewCamera.direction = viewCamera.direction * pure_rotation;
 	viewCamera.up= viewCamera.up * pure_rotation;
 }
-
 
 //应用几何/模型变换
 void vertexTransform(Gameobject& ownface,Homo3D Origin) {
@@ -436,6 +444,7 @@ void viewTransform()
 
 }
 
+
 Gameobject transformObjectToFaceSet(vector<Gameobject>&  Scene ) {
 	Gameobject result;
 	for (const auto& gameobject : Scene) {
@@ -461,72 +470,70 @@ void resetColorAftershading(pixel_Dictionary&pointset,LightSource Ls) {
 		break;
 	case phong:
 		for(auto& it : pointset) {
-			setPointColorAfterLight(get<0>(it.second), get<1>(it.second), environmentLight, L1, viewCamera, MaterialBall, keyShift);
+			setPointColorAfterLight(get<0>(it.second), get<1>(it.second), environmentLight, L1, viewCamera, MaterialBall);
 		}
 		break;
 	}
 }
 
+
 void FaceMain(vector<Face>& model) {
-	pixel_Dictionary bufferData;
-	Buffer_Dictionary Shadow_bufferData;
+	pixel_Dictionary bufferData;              //最终颜色缓冲图
+	Buffer_Dictionary Shadow_bufferData;      //总阴影缓冲图
+	Homo3D box_origin = surround_box_Origin(model);
+
 	for (int i = 0; i < model.size(); i++) {
-
 		Face selected = model[i];
-
-		//背面剔除
-		if (back_face_culling(viewCamera, selected,keyShift))continue;
 		//LightFace,设置面颜色
-		setFaceColorAfterLight(selected,environmentLight ,L1 , viewCamera,MaterialBall,keyShift);
+		setFaceColorAfterLight(selected,environmentLight ,L1 , viewCamera,MaterialBall);
 		//投影
-		projectface(selected,viewCamera,keyShift);
+		projectface(selected,viewCamera);
 
 		//裁剪，会对被裁剪出来的点进行颜色与法线进行修改
-		vector<Line> kuang = view.createLine();
+		vector<Line> kuang = view.createLine(Object_3d);
 		for (int i = 0; i < kuang.size(); i++) {
 			clip(selected, kuang[i]);
 		}
 		//设置顶点颜色
 		for (auto& it : selected.projectedPointset) {
-			setPointColorAfterLight(it, selected.materialName, environmentLight, L1, viewCamera, MaterialBall, keyShift);
+			setPointColorAfterLight(it, selected.materialName, environmentLight, L1, viewCamera, MaterialBall);
 		}
-		//填充
-		vector<Line> ET = selected.createLine();
-		vector<Homo2D> facePointset = polygon_filtter(ET);   //该2D点集中法线插值与颜色插值均已设置好，且是针对面的
+
+		selected.polygon_filtter(Object_2d);
+
 		if (current_shadingMode == flat) {
-			for (auto& it : facePointset) {
+			for (auto& it : selected.projectedPointset) {
 				it.color = selected.color;
 			}
 		}
+
+		for (auto& pair : L1) {
+			pair->updateShadow_buffer(selected.projectedPointset, viewCamera, box_origin);
+		}
+
+		//背面剔除
+		if (back_face_culling(viewCamera, selected))continue;
 		//消隐
-		color_buffer1(selected,facePointset, bufferData);
+		color_buffer1(selected, selected.projectedPointset, bufferData);
 	}
+
 	//根据模式重新设置颜色
 	resetColorAftershading(bufferData, MaterialBall);  
 
-	//更新阴影缓冲图
-	shadow_Mapping_MultipyLight(model, L1, viewCamera,keyShift, bufferData, Shadow_bufferData);
+	for (auto& pair : L1) {
+		judgeInshadow(bufferData,pair,Shadow_bufferData );
+	}
 	Shadow_bufferData = JuanJi_buffer(Shadow_bufferData);
 	//光栅绘制
 	glBegin(GL_POINTS);
-	fillColor(bufferData,Shadow_bufferData);
-	glEnd();
-}
-
-
-void curveMain(vector<Face> controlP) {
-	pixel_Dictionary bufferData;
-	Face newface;
-	//newface.pointsetModel=getBezierCurveSet(controlP, DERTAT);
-	newface.pointsetModel = getBlineCurveSet(controlP,2,2, DERTAT);
-	projectface(newface,viewCamera,keyShift);
-	for (auto& it : newface.projectedPointset) {
-		it.setColor(PINK);
+	if (underlight) {
+		fillColor(bufferData);
 	}
-	//color_buffer1(newface.projectedPointset, bufferData);
-	glBegin(GL_POINTS);
-	fillColor(bufferData);
+	else {
+		fillColor(bufferData,Shadow_bufferData);
+	}
 	glEnd();
+
 }
 
 //打印裁剪窗
@@ -550,7 +557,7 @@ void draw_coordinate()
 	//投影
 	for (int i = 0; i < world_coordinate.size(); i++) {
 		Homo3D viewSpacePoint = world_coordinate[i] * viewMatrix;
-		Homo2D draw_viewSpacePoint = i == 0 ? Homo3Projection(viewSpacePoint, keyShift, -viewCamera.position) : Homo3Projection(viewSpacePoint, keyShift, -viewCamera.position).normalize();
+		Homo2D draw_viewSpacePoint = i == 0 ? Homo3Projection(viewSpacePoint,viewCamera.projectedMode, -viewCamera.position) : Homo3Projection(viewSpacePoint, viewCamera.projectedMode, -viewCamera.position).normalize();
 		axis_view.push_back(draw_viewSpacePoint);
 
 	}
@@ -567,14 +574,12 @@ void draw_coordinate()
 }
 
 
-
-
-
 void display(void)
 {
 	switchVvertexTransform(CinTransformIndex, CinOriginIndex);
 	viewTransform();
 	Gameobject ownface=transformObjectToFaceSet(AllScene);
+	clearMa();
 	glClearColor(1.f, 1.f, 1.f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT);
 	displayview();
@@ -582,11 +587,8 @@ void display(void)
 
 	// 绘制图形
 	FaceMain(ownface);
-	//curveMain(ownface);	
-	//displayBLineCurve(ownface[0].pointsetModel, 2, DERTAT, RED);
-	//displayControlPolygon( ownface);
 	glFlush();
-	clearMa();
+
 }
 void reshape(GLsizei w, GLsizei h)
 {
@@ -597,7 +599,11 @@ void reshape(GLsizei w, GLsizei h)
 	glMatrixMode(GL_MODELVIEW);
 }
 
-
+void deletku() {
+	for (auto& pair : L1) {
+		delete pair;
+	}
+}
 int main(int argc, char** argv)
 {
 	init();
@@ -612,6 +618,7 @@ int main(int argc, char** argv)
 	glutMouseFunc(mouse);
 	glutDisplayFunc(display);
 	glutMainLoop();
+	deletku();
 	return 0;
 }
 

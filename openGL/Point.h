@@ -63,6 +63,7 @@ struct Homo2D {
 	Color color;
 	vNormal vn;
 	UV vt;
+	bool inShadow = true;
 	Homo2D(float x = 0, float y = 0, float de = 0, Color co = BLACK, vNormal v = { 0,0,0 }, UV t = {0,0}) : x(x), y(y), depth(de), color(co), vn(v),vt(t) {
 	};
 	void setColor(Color c) {
@@ -80,8 +81,6 @@ struct Homo2D {
 typedef struct Homo2D Homo2D;
 
 
-
-
 class Homo3D {
 public:
 	float x;
@@ -91,6 +90,9 @@ public:
 	vNormal vn;
 	UV vt;
 	Homo3D(float x = 0, float y = 0, float z = 0, float w = 1, vNormal v = { 0,0,0 }, UV t = {0,0}) : x(x), y(y), z(z), w(w), vn(v),vt(t) {};
+	bool equal3D(const Homo3D& other) {
+		return x == other.x && y == other.y && z == other.z;
+	}
 	float magnitude() {
 		return sqrt(x * x + y * y + z * z);
 	}
@@ -201,25 +203,6 @@ float pointProduct(Homo3D a, vNormal b)
 
 
 
-//点的投影
-Homo2D Homo3Projection(Homo3D H3, bool flag, Homo3D viewP) {
-	vNormal v3 = H3.vn;
-	UV vt3 = H3.vt;
-	Matrix4 per(project, viewP.x, viewP.y, viewP.z);
-	Matrix4 zhe(mode::rotate, 1, 1, 0);
-	if (flag) {
-		H3 = H3 * per;
-		if (H3.w != 0.0f) {
-			H3 /= H3.w;
-			H3.w = 1;
-		}
-	}
-	else {
-		H3 = H3 * zhe;
-	}
-
-	return { H3.x,H3.y ,H3.z,BLACK,v3,vt3};
-}
 
 Homo3D calculateRotationAngles(Homo3D homo) {
 	Homo3D angle;
@@ -252,10 +235,7 @@ Homo3D calculateRotationAngles(Homo3D homo) {
 
 
 
-
-
-float findZFromY(Homo2D p1, Homo2D p2, float y0) {
-
+Homo2D findPfromY(Homo2D p1, Homo2D p2, float y0,float x0) {
 	// 检查直线是否垂直（y方向无变化）
 	if (fabs(p2.y - p1.y) < 1e-6f) {
 		if (fabs(y0 - p1.y) < 1e-6f) {
@@ -267,86 +247,17 @@ float findZFromY(Homo2D p1, Homo2D p2, float y0) {
 			return NAN; // 或抛出异常
 		}
 	}
-
-	// 计算参数t
 	float t = (y0 - p1.y) / (p2.y - p1.y);
 
-	// 线性插值计算z值
 	float z0 = p1.depth + t * (p2.depth - p1.depth);
-
-	return z0;
-}
-
-
-Color findColorFromY(Homo2D p1, Homo2D p2, float y0) {
-
-	// 检查直线是否垂直（y方向无变化）
-	if (fabs(p2.y - p1.y) < 1e-6f) {
-		if (fabs(y0 - p1.y) < 1e-6f) {
-			// 如果y0等于端点y值，返回z1（或平均值）
-			return (p1.color + p2.color) / 2.0f;
-		}
-		else {
-			// 该y值不在直线上
-			return NAN; // 或抛出异常
-		}
-	}
-
-	// 计算参数t
-	float t = (y0 - p1.y) / (p2.y - p1.y);
-
-	// 线性插值计算z值
-	Color z0 = p1.color + t * (p2.color +p1.color*-1);
-
-	return z0;
-}
-
-vNormal findVNFromY(Homo2D p1, Homo2D p2, float y0) {
-
-	// 检查直线是否垂直（y方向无变化）
-	if (fabs(p2.y - p1.y) < 1e-6f) {
-		if (fabs(y0 - p1.y) < 1e-6f) {
-			// 如果y0等于端点y值，返回z1（或平均值）
-			return (p1.vn + p2.vn) / 2.0f;
-		}
-		else {
-			// 该y值不在直线上
-			return NAN; // 或抛出异常
-		}
-	}
-
-	// 计算参数t
-	float t = (y0 - p1.y) / (p2.y - p1.y);
-
-	// 线性插值计算vn值
-	vNormal z0 = p1.vn + (p2.vn - p1.vn) * t;
-
-	return z0;
-}
- 
-//new
-UV find_VT_FromY(Homo2D p1, Homo2D p2, float y0) {
-
-	// 检查直线是否垂直（y方向无变化）
-	if (fabs(p2.y - p1.y) < 1e-6f) {
-		if (fabs(y0 - p1.y) < 1e-6f) {
-			// 如果y0等于端点y值，返回z1（或平均值）
-			return (p1.vt + p2.vt) / 2.0f;
-		}
-		else {
-			// 该y值不在直线上
-			return NAN; // 或抛出异常
-		}
-	}
-
-	// 计算参数t
-	float t = (y0 - p1.y) / (p2.y - p1.y);
+	Color color0 = p1.color + t * (p2.color + p1.color * -1);
+	vNormal vn0 = p1.vn + (p2.vn - p1.vn) * t;
 	t = std::fmin(1, fmax(0, t));
 	// 线性插值计算vt值
-	UV vt0 = p1.vt+ (p2.vt + p1.vt * -1)*t  ;
-
-	return vt0;
+	UV vt0 = p1.vt + (p2.vt + p1.vt * -1) * t;
+	return Homo2D{ x0,y0,z0,color0,vn0,vt0 };
 }
+
 
 // 线性插值实现
 vNormal slerp(vNormal a, vNormal b, float t) {
@@ -388,4 +299,14 @@ vNormal findVNFromYSlerp(Homo2D p1, Homo2D p2, float y0) {
 
 	// 球形线性插值
 	return slerp(p1.vn, p2.vn, t);
+}
+
+
+vector<Homo3D>simple_2D_T0_3D(const vector<Homo2D>& point2d) {
+	vector<Homo3D>newpp;
+	for (const Homo2D& pair : point2d) {
+		Homo3D p = { pair.x,pair.y,pair.depth,1.0,pair.vn,pair.vt };
+		newpp.push_back(p);
+	}
+	return newpp;
 }

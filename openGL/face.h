@@ -36,7 +36,7 @@ public:
 		isvisible = true;
 		materialName = "";
 	}
-	vector<Line> createLine();
+	vector<Line> createLine(dimension di);
 	void updateOrigin() { origin = caculateOrigin(); }
 	Homo3D caculateNormal(){
 		// 取面上三点计算法向量
@@ -48,6 +48,8 @@ public:
 		Homo3D norm = crossProduct(v1, v2);
 		return norm.normalize();
 	}
+
+	void polygon_filtter(dimension di);
 };
 
 
@@ -60,15 +62,15 @@ Homo3D Face::caculateOrigin() {
 	return origin1 / pointsetModel.size();
 }
 
-vector<Line> Face::createLine() {
+vector<Line> Face::createLine(dimension di) {
 	vector<Line> lineExcel;
-	if (projectedPointset.size() != 0) {
+	if (di==Object_2d) {
 		for (int i = 0; i < projectedPointset.size(); i++) {
 			Line lin({ projectedPointset[i] }, projectedPointset[(i + 1) % projectedPointset.size()]);
 			lineExcel.push_back(lin);
 		}
 	}
-	else if (pointsetModel.size() != 0 && isvisible) {
+	else if (di==Object_3d) {
 		for (int i = 0; i < pointsetModel.size(); i++) {
 			Line lin({ pointsetModel[i].x,pointsetModel[i].y }, { pointsetModel[(i + 1) % pointsetModel.size()].x,pointsetModel[(i + 1) % pointsetModel.size()].y });
 			lineExcel.push_back(lin);
@@ -77,8 +79,6 @@ vector<Line> Face::createLine() {
 	}
 	return lineExcel;
 }
-
-
 
 
 Homo3D surround_box_Origin(vector<Face> obj)
@@ -101,16 +101,83 @@ Homo3D surround_box_Origin(vector<Face> obj)
 
 
 
+//点的投影
+Homo2D Homo3Projection(Homo3D H3, bool flag, Homo3D viewP) {
+	vNormal v3 = H3.vn;
+	UV vt3 = H3.vt;
+	float depth = H3.z;
+	Matrix4 per(project, viewP.x, viewP.y, viewP.z);
+	Matrix4 zhe(mode::scale, 1, 1, 0);
+	if (flag) {
+		H3 = H3 * per;
+		if (H3.w != 0.0f) {
+			H3 /= H3.w;
+			H3.w = 1;
+		}
+	}
+	else {
+		H3 = H3 * zhe;
+	}
+
+	return { H3.x,H3.y ,depth,BLACK,v3,vt3 };
+}
+
 
 //投影函数
-void projectface(Face& f,Camera realCamera,bool projectedMode) {
+void projectface(Face& f,Camera realCamera) {
 	vector<Homo2D> newface;
 	Matrix4 viewMatrix = realCamera.calculateViewMatrix();
 	for (auto& it : f.pointsetModel) {
 		Homo3D viewSpacePoint = it * viewMatrix;
 		viewSpacePoint.vn = it.vn;//viewP体现z值
 		viewSpacePoint.vt = it.vt;
-		newface.push_back(Homo3Projection(viewSpacePoint, projectedMode, -realCamera.position));
+		newface.push_back(Homo3Projection(viewSpacePoint, realCamera.projectedMode, -realCamera.position));
 	}
 	f.projectedPointset = newface;
 }
+
+
+void Face::polygon_filtter(dimension di) {
+	vector<Line>ET = createLine(di);
+	vector<Homo2D>filledPoints;
+	if (ET.size() < 3) {
+		return;
+	}
+	vector<Line>AET; int ymax = ET[0].ymax, ymin = ET[0].ymin;
+	for (Line it : ET) {
+		it.savePoint();
+		//filledPoints.insert(filledPoints.end(), it.getPointSet().begin(), it.getPointSet().end());
+		if (it.ymax > ymax)ymax = it.ymax;
+		if (it.ymin < ymin)ymin = it.ymin;
+	}
+	for (float scany = ymin; scany < ymax; scany++) {
+		for (const Line& it : ET) {
+			if (it.point1.y == it.point2.y) continue;
+			if (it.ymin == scany)AET.push_back(it);
+		}
+		AET.erase(
+			std::remove_if(AET.begin(), AET.end(),
+				[&scany](const Line& x) { return x.ymax <= scany; }),
+			AET.end()
+		);
+		std::sort(AET.begin(), AET.end(), compareByX);
+		for (int i = 0; i + 1 < AET.size(); i += 2) {
+			Homo2D p1 = findPfromY(AET[i].point1, AET[i].point2, scany, AET[i].interx);
+			Homo2D p2 = findPfromY(AET[i + 1].point1, AET[i + 1].point2, scany, AET[i + 1].interx);
+			Line line = { p1,p2 };
+			line.savePoint(); //display_gragh(line.getPointSet());
+			filledPoints.insert(filledPoints.end(), line.getPointSet().begin(), line.getPointSet().end());
+		}
+		for (Line& it : AET) {
+			it.interx += it.m;
+		}
+	}
+	if (di == Object_2d) {
+		projectedPointset = filledPoints;
+	}
+	else {
+		vector<Homo3D> temp = simple_2D_T0_3D(filledPoints);
+		pointsetModel.insert(pointsetModel.end(), temp.begin(), temp.end()); 
+	}
+}
+
